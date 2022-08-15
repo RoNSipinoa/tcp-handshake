@@ -1,14 +1,16 @@
-input.onButtonPressed(Button.B, function on_button_pressed_b() {
-    if (state == "idle") {
-        pict_list[y32][x32] = 1 - pict_list[y32][x32]
-        refresh()
-    }
+radio.onReceivedNumber(function on_received_number(receivedNumber: number) {
     
+    y = current_row
+    n = receivedNumber
+    for (let x = 0; x < 5; x++) {
+        pict_list[y][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
+    }
+    refresh()
 })
 function refresh() {
-    for (let y = 0; y < 5; y++) {
-        for (let x = 0; x < 5; x++) {
-            led.plotBrightness(x, y, 255 * pict_list[y][x])
+    for (let y2 = 0; y2 < 5; y2++) {
+        for (let x2 = 0; x2 < 5; x2++) {
+            led.plotBrightness(x2, y2, 255 * pict_list[y2][x2])
         }
     }
 }
@@ -39,16 +41,15 @@ function send_ack() {
     radio.sendValue("seq", seq)
 }
 
-radio.onReceivedNumber(function on_received_number(receivedNumber: number) {
+function send_syn() {
     
-    let current_row2 = 0
-    y3 = current_row2
-    n = receivedNumber
-    for (let x3 = 0; x3 < 5; x3++) {
-        pict_list[y3][x3] = Math.idiv(n % 2 ** (5 - x3), 2 ^ 4 - x3)
-    }
-    refresh()
-})
+    state = "SYN_SENT"
+    radio.sendString("SYN")
+    basic.pause(50)
+    seq = randint(0, 4094)
+    radio.sendValue("seq", seq)
+}
+
 input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
     
     if (state == "idle") {
@@ -64,12 +65,12 @@ input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
     }
     
     if (state == "connected") {
-        for (let y2 = 0; y2 < 5; y2++) {
+        for (let y22 = 0; y22 < 5; y22++) {
             result = 0
-            for (let x2 = 0; x2 < 5; x2++) {
-                result += pict_list[y2][x2] * 2 ** (4 - x2)
+            for (let x3 = 0; x3 < 5; x3++) {
+                result += pict_list[y22][x3] * 2 ** (4 - x3)
             }
-            radio.sendValue("seq", y2)
+            radio.sendValue("seq", y22)
             basic.pause(200)
             radio.sendNumber(result)
             basic.pause(200)
@@ -77,15 +78,6 @@ input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
     }
     
 })
-function send_syn() {
-    
-    state = "SYN_SENT"
-    radio.sendString("SYN")
-    basic.pause(50)
-    seq = randint(0, 4094)
-    radio.sendValue("seq", seq)
-}
-
 radio.onReceivedString(function on_received_string(receivedString: string) {
     
     if (!(state == "connected")) {
@@ -104,8 +96,14 @@ radio.onReceivedString(function on_received_string(receivedString: string) {
     }
     
 })
+input.onButtonPressed(Button.B, function on_button_pressed_b() {
+    if (state == "idle") {
+        pict_list[y3][x4] = 1 - pict_list[y3][x4]
+        refresh()
+    }
+    
+})
 radio.onReceivedValue(function on_received_value(name: string, value: number) {
-    let current_row: number;
     
     if (state == "SYN_RECEIVED") {
         seq_before = value
@@ -128,6 +126,7 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
         if (name == "ack" && !(value == seq + 1)) {
             send_syn()
         } else {
+            basic.pause(200)
             led.plotBarGraph(2, 3)
             basic.pause(500)
         }
@@ -153,6 +152,7 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
         if (name == "ack" && !(value == seq + 1)) {
             send_synack()
         } else {
+            basic.pause(300)
             led.plotBarGraph(3, 3)
             basic.pause(1000)
         }
@@ -171,18 +171,22 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
     }
     
     if (state == "connected") {
-        current_row = value
+        if (name == "seq") {
+            current_row = value
+        }
+        
     }
     
 })
-let result = 0
-let n = 0
+let x4 = 0
 let y3 = 0
+let result = 0
 let seq = 0
 let led_loc = 0
 let seq_before = 0
-let x32 = 0
-let y32 = 0
+let n = 0
+let current_row = 0
+let y = 0
 let pict_list : number[][] = []
 let state = ""
 radio.setGroup(1)
@@ -197,9 +201,9 @@ basic.forever(function on_forever() {
     }
     
     if (state == "idle") {
-        x32 = led_loc % 5
-        y32 = Math.idiv(led_loc, 5)
-        led.plotBrightness(x32, y32, 128)
+        x4 = led_loc % 5
+        y3 = Math.idiv(led_loc, 5)
+        led.plotBrightness(x4, y3, 128)
         basic.pause(500)
     }
     
