@@ -6,11 +6,15 @@ radio.onReceivedNumber(function on_received_number(receivedNumber: number) {
         pict_list[y][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
     }
     refresh()
+    if (n == 4) {
+        state = "complete"
+    }
+    
 })
 function refresh() {
-    for (let y2 = 0; y2 < 5; y2++) {
-        for (let x2 = 0; x2 < 5; x2++) {
-            led.plotBrightness(x2, y2, 255 * pict_list[y2][x2])
+    for (let y = 0; y < 5; y++) {
+        for (let x = 0; x < 5; x++) {
+            led.plotBrightness(x, y, 255 * pict_list[y][x])
         }
     }
 }
@@ -31,6 +35,15 @@ input.onButtonPressed(Button.A, function on_button_pressed_a() {
     }
     
 })
+function send_fin() {
+    
+    state = "FIN_WAIT_1"
+    radio.sendString("FIN")
+    basic.pause(50)
+    seq += 1
+    radio.sendValue("seq", seq)
+}
+
 function send_ack() {
     
     radio.sendString("ACK")
@@ -51,6 +64,7 @@ function send_syn() {
 }
 
 input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
+    let result: number;
     
     if (state == "idle") {
         send_syn()
@@ -62,25 +76,44 @@ input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
                         . . . . .
         `).scrollImage(1, 200)
         led.plotBarGraph(1, 3)
-    }
-    
-    if (state == "connected") {
-        for (let y22 = 0; y22 < 5; y22++) {
+    } else if (state == "connected") {
+        for (let y = 0; y < 5; y++) {
             result = 0
-            for (let x3 = 0; x3 < 5; x3++) {
-                result += pict_list[y22][x3] * 2 ** (4 - x3)
+            for (let x = 0; x < 5; x++) {
+                result += pict_list[y][x] * 2 ** (4 - x)
             }
-            radio.sendValue("seq", y22)
+            radio.sendValue("seq", y)
             basic.pause(200)
             radio.sendNumber(result)
             basic.pause(200)
         }
+        state = "complete"
+    } else if (state == "complete") {
+        send_fin()
+        images.createImage(`
+            # # # # #
+                        # # # # #
+                        # # # # #
+                        # # # # #
+                        # # # # #
+        `).scrollImage(1, 200)
+        led.plotBarGraph(3, 4)
     }
     
 })
 radio.onReceivedString(function on_received_string(receivedString: string) {
     
-    if (!(state == "connected")) {
+    if (state == "FIN_WAIT_1") {
+        if (receivedString == "ACK") {
+            state = "FIN_WAIT_2"
+        }
+        
+    } else if (state == "complete") {
+        if (receivedString == "FIN") {
+            state = "CLOSE_WAIT"
+        }
+        
+    } else if (!(state == "connected")) {
         if (receivedString == "SYN") {
             state = "SYN_RECEIVED"
         }
@@ -98,7 +131,7 @@ radio.onReceivedString(function on_received_string(receivedString: string) {
 })
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
     if (state == "idle") {
-        pict_list[y3][x4] = 1 - pict_list[y3][x4]
+        pict_list[y][x] = 1 - pict_list[y][x]
         refresh()
     }
     
@@ -177,10 +210,39 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
         
     }
     
+    if (state == "CLOSE_WAIT") {
+        if (name == "seq") {
+            seq_before = value
+            basic.pause(300)
+            images.createImage(`
+                # # # # #
+                                # # # # #
+                                # # # # #
+                                # # # # #
+                                # # # # #
+            `).scrollImage(1, 200)
+            basic.pause(200)
+            led.plotBarGraph(3, 4)
+            basic.pause(1000)
+            send_ack()
+            led.plotBarGraph(2, 4)
+        }
+        
+    }
+    
+    if (state == "FIN_WAIT_2") {
+        if (name == "ack" && !(value == seq + 1)) {
+            send_fin()
+        } else {
+            basic.pause(200)
+            led.plotBarGraph(2, 4)
+            basic.pause(500)
+        }
+        
+    }
+    
 })
-let x4 = 0
-let y3 = 0
-let result = 0
+let x = 0
 let seq = 0
 let led_loc = 0
 let seq_before = 0
@@ -194,16 +256,17 @@ state = "idle"
 pict_list = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
 radio.sendNumber(0)
 basic.forever(function on_forever() {
-    
+    let x: number;
+    let y: number;
     if (state == "idle") {
         refresh()
         basic.pause(500)
     }
     
     if (state == "idle") {
-        x4 = led_loc % 5
-        y3 = Math.idiv(led_loc, 5)
-        led.plotBrightness(x4, y3, 128)
+        x = led_loc % 5
+        y = Math.idiv(led_loc, 5)
+        led.plotBrightness(x, y, 128)
         basic.pause(500)
     }
     
