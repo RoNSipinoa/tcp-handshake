@@ -1,18 +1,18 @@
 def on_received_number(receivedNumber):
-    global y, n, state
-    y = current_row
+    global y3, n, state
+    y3 = current_row
     n = receivedNumber
     for x in range(5):
-        pict_list[y][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
+        pict_list[y3][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
     refresh()
-    if n == 4:
+    if y3 == 4:
         state = "complete"
 radio.on_received_number(on_received_number)
 
 def refresh():
     for y in range(5):
-        for x in range(5):
-            led.plot_brightness(x, y, 255 * pict_list[y][x])
+        for x2 in range(5):
+            led.plot_brightness(x2, y, 255 * pict_list[y][x2])
 def send_synack():
     radio.send_string("SYN-ACK")
     basic.pause(50)
@@ -63,11 +63,11 @@ def on_button_pressed_ab():
         """).scroll_image(1, 200)
         led.plot_bar_graph(1, 3)
     elif state == "connected":
-        for y in range(5):
+        for y2 in range(5):
             result = 0
-            for x in range(5):
-                result += pict_list[y][x] * 2 ** (4 - x)
-            radio.send_value("seq", y)
+            for x3 in range(5):
+                result += pict_list[y2][x3] * 2 ** (4 - x3)
+            radio.send_value("seq", y2)
             basic.pause(200)
             radio.send_number(result)
             basic.pause(200)
@@ -89,9 +89,12 @@ def on_received_string(receivedString):
     if state == "FIN_WAIT_1":
         if receivedString == "ACK":
             state = "FIN_WAIT_2"
-    elif state == "complete":
+    elif state == "FIN_WAIT_2":
         if receivedString == "FIN":
-            state = "CLOSE_WAIT"
+            state = "TIME_WAIT"
+    elif state == "LAST_ACK":
+        if receivedString == "ACK":
+            state = "idle"
     elif not (state == "connected"):
         if receivedString == "SYN":
             state = "SYN_RECEIVED"
@@ -99,11 +102,15 @@ def on_received_string(receivedString):
             state = "ESTABLISHED_SEND"
         if receivedString == "ACK":
             state = "ESTABLISHED_RECEIVE"
+        if receivedString == "FIN":
+            state = "CLOSE_WAIT"
 radio.on_received_string(on_received_string)
 
 def on_button_pressed_b():
     if state == "idle":
-        pict_list[y][x] = 1 - pict_list[y][x]
+        y3 = led_loc // 5
+        x4 = led_loc % 5
+        pict_list[y3][x4] = 1 - pict_list[y3][x4]
         refresh()
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
@@ -179,6 +186,11 @@ def on_received_value(name, value):
             basic.pause(1000)
             send_ack()
             led.plot_bar_graph(2, 4)
+            basic.pause(2000)
+            send_fin()
+            state = "LAST_ACK"
+            led.plot_bar_graph(1, 4)
+            basic.pause(200)
     if state == "FIN_WAIT_2":
         if name == "ack" and not (value == seq + 1):
             send_fin()
@@ -186,15 +198,23 @@ def on_received_value(name, value):
             basic.pause(200)
             led.plot_bar_graph(2, 4)
             basic.pause(500)
+    if state == "TIME_WAIT":
+        if name == "seq":
+            seq_before = value
+            led.plot_bar_graph(1, 4)
+            basic.pause(1000)
+            send_ack()
+            led.plot_bar_graph(0, 4)
+            state = "idle"
+
 radio.on_received_value(on_received_value)
 
-x = 0
 seq = 0
 led_loc = 0
 seq_before = 0
 n = 0
 current_row = 0
-y = 0
+y3 = 0
 pict_list: List[List[number]] = []
 state = ""
 radio.set_group(1)
@@ -211,8 +231,8 @@ def on_forever():
         refresh()
         basic.pause(500)
     if state == "idle":
-        x = led_loc % 5
-        y = Math.idiv(led_loc, 5)
-        led.plot_brightness(x, y, 128)
+        x5 = led_loc % 5
+        y4 = Math.idiv(led_loc, 5)
+        led.plot_brightness(x5, y4, 128)
         basic.pause(500)
 basic.forever(on_forever)

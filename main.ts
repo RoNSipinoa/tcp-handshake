@@ -1,20 +1,20 @@
 radio.onReceivedNumber(function on_received_number(receivedNumber: number) {
     
-    y = current_row
+    y3 = current_row
     n = receivedNumber
     for (let x = 0; x < 5; x++) {
-        pict_list[y][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
+        pict_list[y3][x] = Math.idiv(n % 2 ** (5 - x), 2 ** (4 - x))
     }
     refresh()
-    if (n == 4) {
+    if (y3 == 4) {
         state = "complete"
     }
     
 })
 function refresh() {
     for (let y = 0; y < 5; y++) {
-        for (let x = 0; x < 5; x++) {
-            led.plotBrightness(x, y, 255 * pict_list[y][x])
+        for (let x2 = 0; x2 < 5; x2++) {
+            led.plotBrightness(x2, y, 255 * pict_list[y][x2])
         }
     }
 }
@@ -77,12 +77,12 @@ input.onButtonPressed(Button.AB, function on_button_pressed_ab() {
         `).scrollImage(1, 200)
         led.plotBarGraph(1, 3)
     } else if (state == "connected") {
-        for (let y = 0; y < 5; y++) {
+        for (let y2 = 0; y2 < 5; y2++) {
             result = 0
-            for (let x = 0; x < 5; x++) {
-                result += pict_list[y][x] * 2 ** (4 - x)
+            for (let x3 = 0; x3 < 5; x3++) {
+                result += pict_list[y2][x3] * 2 ** (4 - x3)
             }
-            radio.sendValue("seq", y)
+            radio.sendValue("seq", y2)
             basic.pause(200)
             radio.sendNumber(result)
             basic.pause(200)
@@ -108,9 +108,14 @@ radio.onReceivedString(function on_received_string(receivedString: string) {
             state = "FIN_WAIT_2"
         }
         
-    } else if (state == "complete") {
+    } else if (state == "FIN_WAIT_2") {
         if (receivedString == "FIN") {
-            state = "CLOSE_WAIT"
+            state = "TIME_WAIT"
+        }
+        
+    } else if (state == "LAST_ACK") {
+        if (receivedString == "ACK") {
+            state = "idle"
         }
         
     } else if (!(state == "connected")) {
@@ -126,12 +131,20 @@ radio.onReceivedString(function on_received_string(receivedString: string) {
             state = "ESTABLISHED_RECEIVE"
         }
         
+        if (receivedString == "FIN") {
+            state = "CLOSE_WAIT"
+        }
+        
     }
     
 })
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
+    let y3: number;
+    let x4: number;
     if (state == "idle") {
-        pict_list[y][x] = 1 - pict_list[y][x]
+        y3 = Math.idiv(led_loc, 5)
+        x4 = led_loc % 5
+        pict_list[y3][x4] = 1 - pict_list[y3][x4]
         refresh()
     }
     
@@ -226,6 +239,11 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
             basic.pause(1000)
             send_ack()
             led.plotBarGraph(2, 4)
+            basic.pause(2000)
+            send_fin()
+            state = "LAST_ACK"
+            led.plotBarGraph(1, 4)
+            basic.pause(200)
         }
         
     }
@@ -241,14 +259,25 @@ radio.onReceivedValue(function on_received_value(name: string, value: number) {
         
     }
     
+    if (state == "TIME_WAIT") {
+        if (name == "seq") {
+            seq_before = value
+            led.plotBarGraph(1, 4)
+            basic.pause(1000)
+            send_ack()
+            led.plotBarGraph(0, 4)
+            state = "idle"
+        }
+        
+    }
+    
 })
-let x = 0
 let seq = 0
 let led_loc = 0
 let seq_before = 0
 let n = 0
 let current_row = 0
-let y = 0
+let y3 = 0
 let pict_list : number[][] = []
 let state = ""
 radio.setGroup(1)
@@ -256,17 +285,17 @@ state = "idle"
 pict_list = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
 radio.sendNumber(0)
 basic.forever(function on_forever() {
-    let x: number;
-    let y: number;
+    let x5: number;
+    let y4: number;
     if (state == "idle") {
         refresh()
         basic.pause(500)
     }
     
     if (state == "idle") {
-        x = led_loc % 5
-        y = Math.idiv(led_loc, 5)
-        led.plotBrightness(x, y, 128)
+        x5 = led_loc % 5
+        y4 = Math.idiv(led_loc, 5)
+        led.plotBrightness(x5, y4, 128)
         basic.pause(500)
     }
     
